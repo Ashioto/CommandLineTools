@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电流电压功率数据分析器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.0/dist/chartjs-plugin-zoom.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            background-attachment: fixed;
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(31, 97, 172, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        h1 {
+            color: #1565c0;
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .file-input-wrapper {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(to right, #1976d2, #2196f3);
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(25, 118, 210, 0.3);
+            border: none;
+        }
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(25, 118, 210, 0.4);
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(to right, #1976d2, #2196f3);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(25, 118, 210, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(25, 118, 210, 0.4);
+        }
+        .info {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(227, 242, 253, 0.6);
+            border-radius: 12px;
+            font-size: 14px;
+            border: 1px solid rgba(33, 150, 243, 0.2);
+        }
+        .info p {
+            margin: 8px 0;
+        }
+        .info strong {
+            color: #0d47a1;
+        }
+        .legend {
+            text-align: center;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 8px 15px;
+            border-radius: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .legend-color {
+            display: inline-block;
+            width: 25px;
+            height: 4px;
+            margin-right: 8px;
+            vertical-align: middle;
+            border-radius: 2px;
+        }
+        .power-unit-selector {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 8px 15px;
+            border-radius: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-left: 10px;
+        }
+        .power-unit-selector label {
+            margin-right: 10px;
+            font-weight: 500;
+            color: #0d47a1;
+        }
+        .power-unit-selector input[type="radio"] {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>电流电压功率数据分析器</h1>
+        
+        <div class="file-input-wrapper">
+            <label for="fileInput" class="file-input-label">
+                选择数据文件
+            </label>
+            <input type="file" id="fileInput" accept=".txt,.csv,.dat">
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #1976d2;"></span>
+                <span>电压 (V)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #4caf50;"></span>
+                <span>电流 (mA)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #ff9800;"></span>
+                <span>功率</span>
+            </div>
+            <div class="power-unit-selector">
+                <label>功率单位：</label>
+                <input type="radio" id="mw" name="powerUnit" value="mw" checked>
+                <label for="mw">mW</label>
+                <input type="radio" id="w" name="powerUnit" value="w">
+                <label for="w">W</label>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="resetZoom()">复位视图</button>
+            <button onclick="toggleDataset(0)">显示/隐藏电压</button>
+            <button onclick="toggleDataset(1)">显示/隐藏电流</button>
+            <button onclick="toggleDataset(2)">显示/隐藏功率</button>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="dataChart"></canvas>
+        </div>
+        
+        <div class="info">
+            <p><strong>使用说明：</strong></p>
+            <p>1. 点击"选择数据文件"按钮上传您的数据文件</p>
+            <p>2. 数据格式：毫秒时间/V/mA（例如：123241/12.1/12.2）</p>
+            <p>3. 使用鼠标拖动可以放大特定区域</p>
+            <p>4. 点击"复位视图"按钮可以恢复原始视图</p>
+            <p>5. 可以单独显示或隐藏电压/电流/功率数据</p>
+            <p>6. 功率单位可在 mW 和 W 之间切换</p>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        let originalData = {
+            time: [],
+            voltage: [],
+            current: [],
+            power: []
+        };
+
+        // 初始化图表
+        const ctx = document.getElementById('dataChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '电压 (V)',
+                    data: [],
+                    borderColor: '#1976d2',
+                    backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    tension: 0.1
+                }, {
+                    label: '电流 (mA)',
+                    data: [],
+                    borderColor: '#4caf50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                }, {
+                    label: '功率 (mW)',
+                    data: [],
+                    borderColor: '#ff9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    tension: 0.1,
+                    yAxisID: 'y2'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '电流电压功率数据图表',
+                        font: {
+                            size: 18,
+                            weight: 'bold'
+                        },
+                        color: '#0d47a1'
+                    },
+                    zoom: {
+                        zoom: {
+                            wheel: {
+                                enabled: true,
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            drag: {
+                                enabled: true,
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                                borderColor: '#1976d2',
+                                borderWidth: 1
+                            },
+                            mode: 'x',
+                        },
+                        pan: {
+                            enabled: true,
+                            mode: 'x',
+                        }
+                    },
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#0d47a1',
+                        bodyColor: '#2c3e50',
+                        borderColor: '#bbdefb',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: '相对时间 (秒)',
+                            color: '#0d47a1',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: '电压 (V)',
+                            color: '#0d47a1',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: '电流 (mA)',
+                            color: '#0d47a1',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    },
+                    y2: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: '功率 (mW)',
+                            color: '#0d47a1',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        }
+                    }
+                }
+            }
+        });
+
+        // 文件输入处理
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    parseData(content);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // 功率单位切换
+        document.querySelectorAll('input[name="powerUnit"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                updatePowerUnit(this.value);
+            });
+        });
+
+        // 解析数据
+        function parseData(content) {
+            const lines = content.split('\n');
+            originalData = {
+                time: [],
+                voltage: [],
+                current: [],
+                power: []
+            };
+            
+            let firstTime = null;
+            let validLines = 0;
+            let invalidLines = 0;
+
+            lines.forEach((line, index) => {
+                line = line.trim();
+                if (!line) return;
+
+                const parts = line.split('/');
+                if (parts.length !== 3) {
+                    invalidLines++;
+                    return;
+                }
+
+                const time = parseFloat(parts[0]);
+                const voltage = parseFloat(parts[1]);
+                const current = parseFloat(parts[2]);
+
+                if (isNaN(time) || isNaN(voltage) || isNaN(current)) {
+                    invalidLines++;
+                    return;
+                }
+
+                if (firstTime === null) {
+                    firstTime = time;
+                }
+
+                originalData.time.push((time - firstTime) / 1000); // 转换为秒
+                originalData.voltage.push(voltage);
+                originalData.current.push(current);
+                // 计算功率：P = V * I，电流单位从mA转换为A
+                originalData.power.push(voltage * (current / 1000));
+            });
+
+            // 更新图表
+            updateChart();
+            
+            // 显示统计信息
+            console.log(`解析完成：有效行数 ${validLines}，无效行数 ${invalidLines}`);
+        }
+
+        // 更新功率单位
+        function updatePowerUnit(unit) {
+            const powerDataset = chart.data.datasets[2];
+            if (unit === 'w') {
+                powerDataset.label = '功率 (W)';
+                powerDataset.data = originalData.power.map(p => p);
+                chart.options.scales.y2.title.text = '功率 (W)';
+            } else {
+                powerDataset.label = '功率 (mW)';
+                powerDataset.data = originalData.power.map(p => p * 1000);
+                chart.options.scales.y2.title.text = '功率 (mW)';
+            }
+            chart.update();
+        }
+
+        // 更新图表
+        function updateChart() {
+            const unit = document.querySelector('input[name="powerUnit"]:checked').value;
+            chart.data.labels = originalData.time;
+            chart.data.datasets[0].data = originalData.voltage;
+            chart.data.datasets[1].data = originalData.current;
+            if (unit === 'w') {
+                chart.data.datasets[2].data = originalData.power;
+            } else {
+                chart.data.datasets[2].data = originalData.power.map(p => p * 1000);
+            }
+            chart.update();
+        }
+
+        // 复位视图
+        function resetZoom() {
+            chart.resetZoom();
+        }
+
+        // 切换数据集显示/隐藏
+        function toggleDataset(index) {
+            const meta = chart.getDatasetMeta(index);
+            meta.hidden = !meta.hidden;
+            chart.update();
+        }
+    </script>
+</body>
+</html>
